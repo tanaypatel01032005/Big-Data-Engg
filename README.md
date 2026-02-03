@@ -231,7 +231,7 @@ This section summarizes the quantitative impact of the BookFinder enrichment pip
 * Books with descriptions: 35,533 (100%)
 * Average description length: ~150 words
 * Median description length: ~130 words
-* Minimum length: ~40 words
+* Minimum length: ~2 words
 * Maximum length: 600+ words
 
 ---
