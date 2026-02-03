@@ -24,8 +24,8 @@ This project uses an **ETL (Extract, Transform, Load)** pipeline approach. We do
 ```mermaid
 graph LR
     A[Raw CSV Data] -->|ingestion.py| B(Enrichment Engine)
-    B -->|Clean CSV| C[SQLite Database]
-    C -->|SQL Queries| D[FastAPI Server]
+    B -->|SQLite3.py| C[SQLite Database]
+    C -->|api.py| D[FastAPI Server]
     D -->|JSON Data| E[End User]
 ```
 
