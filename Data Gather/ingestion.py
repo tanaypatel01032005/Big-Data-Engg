@@ -12,8 +12,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from cli_helper import setup_cli
 
 # ---------------- CONFIG ----------------
-DEFAULT_INPUT_CSV_PATH = r"D:\DAU\SEM 2\BDE\Assignment\Assignment 1\Assignment 1\Big-Data-Engg\Data\dau_library_data.csv"
-DEFAULT_OUTPUT_CSV_PATH = r"D:\DAU\SEM 2\BDE\Assignment\Assignment 1\Assignment 1\Big-Data-Engg\Data\FinalDATA.csv"
+input = "D:\DAU\SEM 2\BDE\Assignment\Assignment 1\Assignment 1\Big-Data-Engg\Data\dau_library_data.csv"
+output = "D:\DAU\SEM 2\BDE\Assignment\Assignment 1\Assignment 1\Big-Data-Engg\Data\FinalDATA.csv"
 
 USER_AGENT = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
@@ -117,7 +117,7 @@ def fetch_google_api_fallback(title, author):
 
 
 # ---------------- PIPELINE ----------------
-def run_scrape(input_csv_path, output_csv_path, sleep_time):
+def run_scrape(input, output, sleep_time):
     print("🔹 Loading input CSV...")
     df = pd.read_csv(input_csv_path, encoding="latin1")
 
@@ -176,9 +176,9 @@ def run_scrape(input_csv_path, output_csv_path, sleep_time):
 
         time.sleep(sleep_time)
 
-    df.to_csv(output_csv_path, index=False, encoding="latin1")
+    df.to_csv(output, index=False, encoding="latin1")
     print("✅ Enrichment completed")
-    print("📁 Output saved to:", output_csv_path)
+    print("📁 Output saved to:", output)
 
 
 # ---------------- ENTRY ----------------
