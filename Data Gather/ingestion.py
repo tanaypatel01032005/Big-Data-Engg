@@ -43,25 +43,25 @@ def clean_text(text):
     return text
 
 
-# ---------------- FETCH LOGIC ----------------
+# ---------------- FETCH FUNCTIONS ----------------
 def fetch_openlibrary_description(isbn):
     if not isbn:
-        return "ISBN Not Matched"
+        return None
 
     try:
         url = f"https://openlibrary.org/isbn/{isbn}"
         r = requests.get(url, headers=USER_AGENT, timeout=10)
 
         if r.status_code != 200:
-            return "ISBN Not Matched"
+            return None
 
         soup = BeautifulSoup(r.text, "html.parser")
         p = soup.select_one("div.book-description div.read-more__content p")
 
-        return p.get_text(strip=True) if p else "Description Not Available"
+        return p.get_text(strip=True) if p else None
 
     except requests.RequestException:
-        return "Description Not Available"
+        return None
 
 
 def fetch_google_html_description(isbn):
@@ -78,13 +78,10 @@ def fetch_google_html_description(isbn):
         soup = BeautifulSoup(r.text, "html.parser")
         div = soup.find("div", id="synopsis")
 
-        if div:
-            return div.get_text(separator=" ", strip=True)
+        return div.get_text(separator=" ", strip=True) if div else None
 
     except requests.RequestException:
         return None
-
-    return None
 
 
 def google_books_api_search(query):
@@ -119,40 +116,10 @@ def fetch_google_api_fallback(title, author):
     return None
 
 
-def fetch_book_description(title, author, isbn):
-    """
-    Priority order:
-    1. OpenLibrary (ISBN)
-    2. Google Books HTML (ISBN)
-    3. Google Books API (Title + Author)
-    """
-
-    isbn = clean_isbn(isbn)
-
-    # 1️⃣ OpenLibrary
-    desc = fetch_openlibrary_description(isbn)
-    if desc not in MISSING_VALUES:
-        return desc
-
-    # 2️⃣ Google Books HTML
-    desc = fetch_google_html_description(isbn)
-    if desc:
-        return desc
-
-    # 3️⃣ Google Books API fallback
-    desc = fetch_google_api_fallback(title, author)
-    if desc:
-        return desc
-
-    return "Not Found"
-
-
 # ---------------- PIPELINE ----------------
 def run_scrape(input_csv_path, output_csv_path, sleep_time):
     print("🔹 Loading input CSV...")
     df = pd.read_csv(input_csv_path, encoding="latin1")
-
-    print("Initial rows:", len(df))
 
     df = df.drop_duplicates(subset=[
         "Title",
@@ -165,32 +132,59 @@ def run_scrape(input_csv_path, output_csv_path, sleep_time):
         "Class_No"
     ])
 
-    print("After dedup:", len(df))
-
     if "description" not in df.columns:
         df["description"] = "Not Found"
 
-    missing_df = df[df["description"].isin(MISSING_VALUES)]
+    # ---------- STAGE 1: OpenLibrary ----------
+    print("📚 Stage 1: OpenLibrary enrichment")
+    missing_idx = df[df["description"].isin(MISSING_VALUES)].index
 
-    print("Rows needing description:", len(missing_df))
+    for idx in tqdm(missing_idx, desc="OpenLibrary"):
+        isbn = clean_isbn(df.at[idx, "ISBN"])
+        desc = fetch_openlibrary_description(isbn)
 
-    for idx in tqdm(missing_df.index, desc="Scraping descriptions"):
+        if desc:
+            df.at[idx, "description"] = desc
+
+        time.sleep(sleep_time)
+
+    # ---------- STAGE 2: Google Books HTML ----------
+    print("📘 Stage 2: Google Books HTML enrichment")
+    missing_idx = df[df["description"].isin(MISSING_VALUES)].index
+
+    for idx in tqdm(missing_idx, desc="Google HTML"):
+        isbn = clean_isbn(df.at[idx, "ISBN"])
+        desc = fetch_google_html_description(isbn)
+
+        if desc:
+            df.at[idx, "description"] = desc
+
+        time.sleep(sleep_time)
+
+    # ---------- STAGE 3: Google Books API ----------
+    print("📗 Stage 3: Google Books API fallback")
+    missing_idx = df[df["description"].isin(MISSING_VALUES)].index
+
+    for idx in tqdm(missing_idx, desc="Google API"):
         title = df.at[idx, "Title"]
         author = df.at[idx, "Author_Editor"]
-        isbn = df.at[idx, "ISBN"]
 
-        df.at[idx, "description"] = fetch_book_description(title, author, isbn)
+        desc = fetch_google_api_fallback(title, author)
+
+        if desc:
+            df.at[idx, "description"] = desc
+
         time.sleep(sleep_time)
 
     df.to_csv(output_csv_path, index=False, encoding="latin1")
-    print("✅ Scraping completed.")
+    print("✅ Enrichment completed")
     print("📁 Output saved to:", output_csv_path)
 
 
 # ---------------- ENTRY ----------------
 if __name__ == "__main__":
     args = setup_cli(
-        "Scrape book descriptions using OpenLibrary and Google Books.",
+        "Scrape book descriptions using staged multi-source enrichment.",
         [
             {
                 'name': '--input_csv',
