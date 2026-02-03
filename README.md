@@ -92,6 +92,32 @@ BDE
 
 ---
 
+## 📁 Detailed File Descriptions
+
+This section provides a brief description of all files in the project for quick reference.
+
+### Root Directory Files
+- **cli_helper.py**: A utility module that provides a function to set up command-line interfaces using Python's argparse library, facilitating easy CLI argument parsing for scripts.
+- **README.md**: This documentation file, providing an overview of the project, architecture, setup instructions, and usage.
+- **requirements.txt**: A text file listing all Python dependencies required to run the project, including libraries like FastAPI, Pandas, and BeautifulSoup.
+
+### API Directory
+- **API/api.py**: The main FastAPI application file that defines REST endpoints for querying the book database, including health checks and book retrieval by ISBN or in bulk.
+
+### Data Directory
+- **Data/dau_library_data.csv**: The raw input CSV file containing initial library book data with fields like title, author, ISBN, and often missing descriptions.
+- **Data/FinalDATA.csv**: The enriched output CSV file after running the ingestion script, containing the original data plus scraped book descriptions.
+
+### Data Gather Directory
+- **Data Gather/data_exploration.ipynb**: A Jupyter notebook for performing basic exploratory data analysis on the library dataset, including data loading, statistics, and missing value checks.
+- **Data Gather/dau_library_data.csv**: A copy of the raw data file located in the Data Gather directory for convenience during data processing.
+- **Data Gather/ingestion.py**: The core script that reads the raw CSV, scrapes missing book descriptions from Google search results, and outputs the enriched data.
+
+### Database Directory
+- **Database/db.sqlite3**: The SQLite database file that stores the structured book data in a relational format after loading from the enriched CSV.
+- **Database/SQLite3.py**: A script to create the database schema and load the enriched CSV data into the SQLite database for querying.
+---
+
 ## 📋 Data Files Description
 
 ### `dau_library_data.csv`
@@ -304,6 +330,9 @@ This project demonstrates:
 * API-based data access
 * Command-line interface development
 * End-to-end data engineering workflows
+
+---
+
 
 ---
 
