@@ -87,7 +87,6 @@ BDE
    |__ FinalDATA.csv
    |__ dau_library_data.csv
 |__ cli_helper.py
-|__ example_script.py
 |__ README.md
 |__ requirements.txt
 
@@ -99,21 +98,6 @@ BDE
 
 Raw library dataset containing accession details, titles, ISBNs, authors, publishers, year, pages, and classification numbers.
 This dataset contains **duplicate ISBNs** and **missing descriptions**.
-
-### `OpenLibrary.csv`
-
-Intermediate dataset generated using ISBN-based queries to the OpenLibrary API.
-Provides partial description coverage and serves as an **early enrichment layer**.
-
-### `GoogleBooks.csv`
-
-Large-scale dataset obtained by extracting description-related HTML content from Google Books.
-Used as a **high-coverage intermediate source** during enrichment.
-
-### `Final_Merged_Descriptions.csv`
-
-Final consolidated dataset created by merging all successful description sources and resolving duplicates.
-This file acts as the **single source of truth** for database insertion.
 
 ### `FinalDATA.csv`
 
@@ -127,12 +111,12 @@ The enriched CSV file after running the ingestion script, ready for database ins
 2. Identify unique and missing ISBN descriptions
 3. Query OpenLibrary for initial description enrichment
 4. Apply Google Books-based extraction for higher coverage
-5. Clean and normalize extracted text
+5. Clean and normalise extracted text
 6. Merge all successful descriptions into a unified dataset
 7. Resolve duplicates and inconsistencies
 8. Export final enriched dataset
 
-The enrichment logic is implemented and documented in `Data Scrape.ipynb`.
+The enrichment logic is implemented and documented in `ingestion.py`.
 
 ---
 
