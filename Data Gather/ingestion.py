@@ -119,7 +119,7 @@ def fetch_google_api_fallback(title, author):
 # ---------------- PIPELINE ----------------
 def run_scrape(input, output, sleep_time):
     print("🔹 Loading input CSV...")
-    df = pd.read_csv(input_csv_path, encoding="latin1")
+    df = pd.read_csv(input, encoding="latin1")
 
     df = df.drop_duplicates(subset=[
         "Title",
