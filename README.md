@@ -334,7 +334,8 @@ python Database/SQLite3.py
 ### 4. Launch the API (The "Receptionist")
 
 ```bash
-uvicorn API.api:app --reload
+python -m uvicorn API.api:app --reload
+
 ```
 
 Access documentation:
