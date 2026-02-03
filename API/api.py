@@ -3,7 +3,7 @@ import sqlite3
 
 app = FastAPI()
 
-DB_PATH = "D:\\DAU\SEM 2\\BDE\\Assignment\\Assignment 1\\BDE\Database\\db.sqlite3"
+DB_PATH = "D:/DAU/SEM 2/BDE/Assignment/Assignment 1/BDE\Database/db.sqlite3"
  
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)

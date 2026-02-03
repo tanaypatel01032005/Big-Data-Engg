@@ -2,7 +2,7 @@ import sqlite3
 import pandas as pd
 
 # Read CSV
-df = pd.read_csv("D:\DAU\SEM 2\BDE\Assignment\Assignment 1\BDE\Data\FinalDATA.csv")
+df = pd.read_csv("D:/DAU/SEM 2/BDE/Assignment/Assignment 1/BDE/Data/FinalDATA.csv")
 
 
 # SQLite connection
