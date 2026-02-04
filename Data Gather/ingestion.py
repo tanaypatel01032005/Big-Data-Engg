@@ -9,11 +9,14 @@ import os
 from urllib.parse import quote_plus
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from cli_helper import setup_cli
+from cli_helper import setup_cli, check_help
+
+# Check for --help early
+check_help("Scrape book descriptions using staged multi-source enrichment.")
 
 # ---------------- CONFIG ----------------
-input = "D:\DAU\SEM 2\BDE\Assignment\Assignment 1\Assignment 1\Big-Data-Engg\Data\dau_library_data.csv"
-output = "D:\DAU\SEM 2\BDE\Assignment\Assignment 1\Assignment 1\Big-Data-Engg\Data\FinalDATA.csv"
+DEFAULT_INPUT_CSV_PATH = "D:\DAU\SEM 2\BDE\Assignment\Assignment 1\Assignment 1\Big-Data-Engg\Data\dau_library_data.csv"
+DEFAULT_OUTPUT_CSV_PATH = "D:\DAU\SEM 2\BDE\Assignment\Assignment 1\Assignment 1\Big-Data-Engg\Data\FinalDATA.csv"
 
 USER_AGENT = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"

@@ -1,14 +1,19 @@
 import sqlite3
 import pandas as pd
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from cli_helper import setup_cli, check_help
+
+# Check for --help early
+check_help("Script to import CSV data into SQLite database.")
 
 # Read CSV
-df = pd.read_csv("D:/DAU/SEM 2/BDE/Assignment/Assignment 1/BDE/Data/FinalDATA.csv")
-
+df = pd.read_csv("Data/FinalDATA.csv")
 
 # SQLite connection
 conn = sqlite3.connect("db.sqlite3")
 cursor = conn.cursor()
-import os
 print(os.path.abspath("db.sqlite3"))
 # Create table with ALL columns
 cursor.execute("""
@@ -26,7 +31,7 @@ CREATE TABLE IF NOT EXISTS books (
     description TEXT
 )
 """)
- 
+
 for _, row in df.iterrows():
     cursor.execute("""
     INSERT OR IGNORE INTO books
@@ -49,3 +54,9 @@ conn.commit()
 conn.close()
 
 print("FULL CSV copied into SQLite (all columns, no changes)")
+
+if __name__ == "__main__":
+    args = setup_cli(
+        "Script to import CSV data into SQLite database.",
+        []
+    )
