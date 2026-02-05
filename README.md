@@ -386,3 +386,86 @@ This project demonstrates:
 ## 🎓 Conclusion
 
 BookFinder addresses a real-world data quality problem using a structured engineering pipeline. It converts incomplete library metadata into an enriched, queryable system exposed through an API. The project emphasizes **robustness, reproducibility, and practical constraints**, making it suitable for both academic evaluation and portfolio presentation.
+
+---
+
+# Library Book Finder: Semantic Search Extension
+
+## Overview
+This extension adds a deterministic semantic search system on top of the existing library database. It introduces a manual embedding build pipeline, new FastAPI endpoints, and a React (Vite) front-end for three strict search modes: ISBN exact, Title semantic, and full Semantic search over Title + Description.
+
+## Architecture
+```
+SQLite (db.sqlite3)
+   │
+   ├── scripts/build_embeddings.py (manual rebuild)
+   │      ├── title_embeddings.npy
+   │      ├── desc_embeddings.npy
+   │      ├── title_metadata.json
+   │      └── desc_metadata.json
+   │
+FastAPI (API/api.py) ─── /search/* endpoints ─── React UI (/app)
+```
+
+## Semantic Logic (Deterministic)
+- Model: `sentence-transformers/all-MiniLM-L6-v2`
+- Vector dimension: 384
+- Description chunking: 2–3 sentence segments (deterministic split)
+- Similarity: cosine similarity on normalized vectors
+- Title search: embeddings over `Title` only
+- Semantic search (primary): equal-weighted average of Title similarity and the best Description chunk similarity
+
+## Explainability (Academic-safe)
+- No LLM-generated explanations
+- Explanation data includes:
+  - similarity score
+  - matched text chunk
+  - matched field (title or description)
+- Highlighting uses deterministic phrase extraction from matched chunks
+
+## Embedding Rebuild (Manual)
+Embeddings are stored on disk and never in SQLite.
+
+```
+python scripts/build_embeddings.py
+```
+
+This will overwrite `embeddings/*.npy` and `embeddings/*.json` files.
+
+## New API Endpoints
+- `GET /search/isbn?isbn=...` (exact match only)
+- `GET /search/title?query=...` (Title semantic search)
+- `GET /search/semantic?query=...` (Title + Description, equal weight)
+- `GET /search/raw?query=...` (raw similarity scores and chunks)
+- `GET /model-info` (model metadata)
+- `GET /health` (service readiness)
+
+Existing endpoints (`/books`, `/book`, `/books/{isbn}`) are unchanged.
+
+## Frontend (React + Vite)
+The UI lives in `frontend/` and is served at `/app` when the FastAPI server is running.
+
+Features:
+- Three search boxes (only one active at a time)
+- Expandable results
+- Similarity scores + highlighted phrases
+- Threshold-reduction warning banner
+- "How Semantic Search Works" with model info from `/model-info`
+
+## Docker Deployment (Single Container)
+Build and run locally:
+
+```
+docker build -t library-book-finder .
+docker run -p 8000:8000 library-book-finder
+```
+
+The container builds the front-end, precomputes embeddings, and starts FastAPI.
+
+## Run Instructions (Local)
+```
+python scripts/build_embeddings.py
+uvicorn API.api:app --host 0.0.0.0 --port 8000
+```
+
+Open `http://localhost:8000/app` for the UI.

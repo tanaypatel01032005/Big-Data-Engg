@@ -5,3 +5,6 @@ requests
 aiohttp
 tqdm
 beautifulsoup4
+numpy
+sentence-transformers
+torch
