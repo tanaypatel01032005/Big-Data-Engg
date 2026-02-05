@@ -1,0 +1,11 @@
+.git
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3-shm
+*.sqlite3-wal
+node_modules
+frontend/node_modules
+frontend/dist
+embeddings
