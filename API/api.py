@@ -462,10 +462,23 @@ def health():
 
 if (BASE_DIR / "frontend" / "dist").exists():
     app.mount(
-        "/app",
-        StaticFiles(directory=BASE_DIR / "frontend" / "dist", html=True),
-        name="frontend",
+        "/assets",
+        StaticFiles(directory=BASE_DIR / "frontend" / "dist" / "assets", html=True),
+        name="assets",
     )
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        # Allow API calls to pass through
+        if full_path.startswith("api") or full_path.startswith("docs") or full_path.startswith("openapi.json"):
+             raise HTTPException(status_code=404, detail="Not Found")
+             
+        # Serve the index.html for all other routes (SPA support)
+        index_path = BASE_DIR / "frontend" / "dist" / "index.html"
+        if index_path.exists():
+             from fastapi.responses import FileResponse
+             return FileResponse(index_path)
+        return {"message": "Frontend not found"}
 
 
 if __name__ == "__main__":
