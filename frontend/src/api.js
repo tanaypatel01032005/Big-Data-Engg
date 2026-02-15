@@ -1,4 +1,6 @@
-const BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+// Use empty string (relative path) in production to avoid CORS/Mixed Content issues
+// Use localhost:8000 in development
+const BASE = import.meta.env.PROD ? "" : "http://127.0.0.1:8000";
 
 export async function searchTitle(query) {
   const res = await fetch(
