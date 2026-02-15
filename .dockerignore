@@ -1,11 +1,34 @@
-.git
 __pycache__
 *.pyc
 *.pyo
 *.pyd
-*.sqlite3-shm
-*.sqlite3-wal
-node_modules
-frontend/node_modules
-frontend/dist
-embeddings
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.gitignore
+.dockerignore
+Dockerfile
+README.md
+task.md
+walkthrough.md
+implementation_plan.md
+node_modules/
+frontend/node_modules/
+Data/
+# embeddings/ (we want this!)
+# Database/ (we want the initial empty DB or populated one?)
+# Actually we want the populated DB if available, but usually distinct in prod.
+# The user's DB has just been rebuilt with images, so we WANT valid data.
+# BUT Data/ folder (CSV) is huge and not needed at runtime.

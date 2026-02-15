@@ -1,278 +1,183 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState, useEffect, useRef } from "react";
+import SearchBox from "./components/SearchBox";
+import BookGrid from "./components/BookGrid";
+import BookModal from "./components/BookModal";
+import WarningBanner from "./components/WarningBanner";
+import LoadingSkeleton from "./components/LoadingSkeleton";
+import * as api from "./api";
 
-const MODES = {
-  isbn: {
-    label: 'ISBN Search (Exact)',
-    endpoint: '/search/isbn',
-    param: 'isbn',
-  },
-  title: {
-    label: 'Title Semantic Search',
-    endpoint: '/search/title',
-    param: 'query',
-  },
-  semantic: {
-    label: 'Semantic Search (Title + Description)',
-    endpoint: '/search/semantic',
-    param: 'query',
-  },
-};
-
-const DEFAULT_WARNING =
-  'No results met the default similarity threshold. The system lowered the threshold automatically.';
-
-const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
-
-const highlightText = (text, phrases = []) => {
-  if (!text) return '';
-  let highlighted = text;
-  phrases
-    .filter((phrase) => phrase && phrase.trim().length > 0)
-    .forEach((phrase) => {
-      const regex = new RegExp(`(${escapeRegExp(phrase)})`, 'gi');
-      highlighted = highlighted.replace(regex, '<mark>$1</mark>');
-    });
-  return highlighted;
-};
-
-const formatScore = (score) => (score === null || score === undefined ? '-' : score.toFixed(3));
-
-const ModeSelector = ({ mode, onChange }) => (
-  <div className="mode-selector">
-    {Object.entries(MODES).map(([key, value]) => (
-      <label key={key} className={`mode-option ${mode === key ? 'active' : ''}`}>
-        <input
-          type="radio"
-          name="mode"
-          value={key}
-          checked={mode === key}
-          onChange={() => onChange(key)}
-        />
-        {value.label}
-      </label>
-    ))}
-  </div>
-);
-
-const SearchForm = ({ mode, values, setValues, onSubmit, loading }) => {
-  const placeholders = {
-    isbn: 'Enter ISBN (exact match)',
-    title: 'Enter a title or phrase',
-    semantic: 'Describe the topic you want to find',
-  };
-
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setValues((prev) => ({ ...prev, [name]: value }));
-  };
-
-  return (
-    <form className="search-form" onSubmit={onSubmit}>
-      <div className="search-inputs">
-        <input
-          name="isbn"
-          value={values.isbn}
-          onChange={handleChange}
-          placeholder={placeholders.isbn}
-          disabled={mode !== 'isbn'}
-        />
-        <input
-          name="title"
-          value={values.title}
-          onChange={handleChange}
-          placeholder={placeholders.title}
-          disabled={mode !== 'title'}
-        />
-        <input
-          name="semantic"
-          value={values.semantic}
-          onChange={handleChange}
-          placeholder={placeholders.semantic}
-          disabled={mode !== 'semantic'}
-        />
-      </div>
-      <button type="submit" disabled={loading}>
-        {loading ? 'Searching...' : 'Search'}
-      </button>
-    </form>
-  );
-};
-
-const ResultCard = ({ result }) => {
-  const [expanded, setExpanded] = useState(false);
-  const descriptionMatch = result.matches?.find((match) => match.field === 'description');
-  const titleMatch = result.matches?.find((match) => match.field === 'title');
-  const matchText = descriptionMatch?.text || result.match?.text || '';
-  const displayTitle = result.title || result.Title;
-  const displayAuthor = result.author || result.Author_Editor;
-  const displayYear = result.year || result.Year;
-  const displayScore = result.similarity ?? null;
-
-  const hasDetails = Boolean(result.match || result.matches);
-
-  return (
-    <div className="result-card">
-      <header>
-        <div>
-          <h3>{displayTitle}</h3>
-          <p>
-            {displayAuthor} · {displayYear || 'Year n/a'}
-          </p>
-        </div>
-        {displayScore !== null && <div className="score">Similarity: {formatScore(displayScore)}</div>}
-      </header>
-      {hasDetails && (
-        <button className="expand" onClick={() => setExpanded((prev) => !prev)}>
-          {expanded ? 'Hide details' : 'Show details'}
-        </button>
-      )}
-      {expanded && hasDetails && (
-        <div className="details">
-          {titleMatch && (
-            <div>
-              <h4>Title match</h4>
-              <p>Score: {formatScore(titleMatch.score)}</p>
-              <p>{titleMatch.text}</p>
-            </div>
-          )}
-          {descriptionMatch && (
-            <div>
-              <h4>Description match</h4>
-              <p>Score: {formatScore(descriptionMatch.score)}</p>
-              <p
-                className="highlighted"
-                dangerouslySetInnerHTML={{
-                  __html: highlightText(matchText, result.highlight_phrases),
-                }}
-              />
-            </div>
-          )}
-          {result.match && !descriptionMatch && (
-            <div>
-              <h4>Matched text</h4>
-              <p
-                className="highlighted"
-                dangerouslySetInnerHTML={{
-                  __html: highlightText(result.match.text, result.highlight_phrases),
-                }}
-              />
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-function App() {
-  const [mode, setMode] = useState('isbn');
-  const [values, setValues] = useState({ isbn: '', title: '', semantic: '' });
+export default function App() {
   const [results, setResults] = useState([]);
-  const [threshold, setThreshold] = useState(null);
-  const [error, setError] = useState('');
+  const [randomBooks, setRandomBooks] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [modelInfo, setModelInfo] = useState(null);
+  const [randomLoading, setRandomLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [warning, setWarning] = useState(null);
+  const [selectedBook, setSelectedBook] = useState(null);
+  const [searchPerformed, setSearchPerformed] = useState(false);
+  const [query, setQuery] = useState("");
+  const [mode, setMode] = useState("title");
+  const [engineReady, setEngineReady] = useState(null);
+  const pollRef = useRef(null);
 
-  const activeValue = useMemo(() => values[mode], [values, mode]);
-
+  // Poll engine status until ready
   useEffect(() => {
-    fetch('/model-info')
-      .then((response) => response.json())
-      .then((data) => setModelInfo(data))
-      .catch(() => setModelInfo(null));
+    const checkStatus = async () => {
+      try {
+        const status = await api.getSearchStatus();
+        setEngineReady(status.ready);
+        if (status.ready) {
+          clearInterval(pollRef.current);
+        }
+      } catch {
+        // backend not up yet, keep polling
+      }
+    };
+    checkStatus();
+    pollRef.current = setInterval(checkStatus, 3000);
+    return () => clearInterval(pollRef.current);
   }, []);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setError('');
-    setResults([]);
-    setThreshold(null);
+  useEffect(() => {
+    loadFeaturedBooks();
+  }, []);
 
-    if (!activeValue.trim()) {
-      setError('Please enter a search value.');
-      return;
-    }
-
-    const modeConfig = MODES[mode];
-    const params = new URLSearchParams({ [modeConfig.param]: activeValue.trim() });
-
-    setLoading(true);
-    try {
-      const response = await fetch(`${modeConfig.endpoint}?${params.toString()}`);
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.detail || 'Search failed');
-      }
-      const data = await response.json();
-      if (mode === 'isbn') {
-        setResults(data.data || []);
-        setThreshold(null);
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (query.trim().length >= 2) {
+        performSearch();
       } else {
+        setResults([]);
+        setSearchPerformed(false);
+        setError(null);
+        setWarning(null);
+      }
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [query, mode]);
+
+  const loadFeaturedBooks = async () => {
+    setRandomLoading(true);
+    try {
+      // Increased to 12 to fill the screen better
+      const books = await api.getRandomBooks(12);
+      setRandomBooks(books);
+    } catch (err) {
+      console.error("Failed to load featured books", err);
+    } finally {
+      setRandomLoading(false);
+    }
+  };
+
+  const performSearch = async () => {
+    setLoading(true);
+    setError(null);
+    setWarning(null);
+    setSearchPerformed(true);
+
+    try {
+      let data;
+
+      if (mode === "isbn") {
+        data = await api.searchISBN(query);
+        setResults(data.data || []);
+      } else if (mode === "title") {
+        data = await api.searchTitle(query);
+        if (data.threshold_reduced) {
+          setWarning("Threshold was reduced to find matches — results may be less precise.");
+        }
         setResults(data.results || []);
-        setThreshold(data.threshold || null);
+      } else {
+        data = await api.searchSemantic(query);
+        if (data.threshold_reduced) {
+          setWarning("Threshold was reduced to find matches — results may be less precise.");
+        }
+        setResults(data.results || []);
       }
     } catch (err) {
-      setError(err.message || 'Search failed');
+      setError(err.message);
+      setResults([]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="page">
-      <header className="hero">
-        <h1>Library Book Finder</h1>
-        <p>Semantic search for academic library collections with transparent similarity scores.</p>
+    <div className="app">
+      <header>
+        <h1>📚 BookFinder</h1>
+        <p className="subtitle">University Library Enrichment System</p>
       </header>
 
-      <section className="search-panel">
-        <ModeSelector mode={mode} onChange={setMode} />
-        <SearchForm
-          mode={mode}
-          values={values}
-          setValues={setValues}
-          onSubmit={handleSubmit}
-          loading={loading}
+      <main>
+        {engineReady === false && (
+          <div className="engine-status loading">
+            <div className="spinner" />
+            Search engine is warming up — browse books while it loads...
+          </div>
+        )}
+        {engineReady === true && (
+          <div className="engine-status ready">
+            ✓ Search engine ready
+          </div>
+        )}
+
+        <SearchBox
+          onQueryChange={setQuery}
+          onModeChange={setMode}
+          initialMode={mode}
+          initialQuery={query}
         />
-        {threshold?.reduced && (
-          <div className="warning">
-            <strong>Threshold adjusted:</strong> {DEFAULT_WARNING} Final threshold:{' '}
-            {threshold.threshold}
+
+        <WarningBanner message={warning} onHide={() => setWarning(null)} />
+
+        {loading && <LoadingSkeleton count={4} />}
+
+        {error && <div className="status error">❌ {error}</div>}
+
+        {!loading && !error && searchPerformed && (
+          <BookGrid
+            title={`Search Results (${results.length})`}
+            books={results}
+            onSelect={setSelectedBook}
+          />
+        )}
+
+        {!searchPerformed && (
+          <div className="featured-section">
+            <div className="section-header">
+              <h2>Featured Library Books</h2>
+              <button
+                className="shuffle-btn"
+                onClick={loadFeaturedBooks}
+                disabled={randomLoading}
+                title="Shuffle suggestions"
+              >
+                {randomLoading ? "..." : "🔄 Shuffle"}
+              </button>
+            </div>
+
+            {randomLoading ? (
+              <LoadingSkeleton count={4} />
+            ) : randomBooks.length > 0 ? (
+              <BookGrid
+                books={randomBooks}
+                onSelect={setSelectedBook}
+              />
+            ) : null}
           </div>
         )}
-        {error && <div className="error">{error}</div>}
-      </section>
+      </main>
 
-      <section className="results">
-        <h2>Results</h2>
-        {results.length === 0 && !loading ? (
-          <p className="empty">No results yet.</p>
-        ) : (
-          results.map((result) => <ResultCard key={result.Acc_No || result.acc_no} result={result} />)
-        )}
-      </section>
+      <BookModal
+        book={selectedBook}
+        onClose={() => setSelectedBook(null)}
+      />
 
-      <section className="how-it-works">
-        <h2>How Semantic Search Works</h2>
-        <ul>
-          <li>Title search embeds the title only.</li>
-          <li>Semantic search embeds both title and description (equal weight).</li>
-          <li>Descriptions are chunked into 2–3 sentence segments.</li>
-          <li>Similarity is computed with cosine similarity using local embeddings.</li>
-        </ul>
-        {modelInfo && (
-          <div className="model-info">
-            <h3>Model Information</h3>
-            <p>
-              Model: <strong>{modelInfo.model_name}</strong>
-            </p>
-            <p>Vector dimension: {modelInfo.vector_dimension}</p>
-            <p>Default threshold: {modelInfo.default_threshold}</p>
-          </div>
-        )}
-      </section>
+      <footer className="footer">
+        <p>BDE Final Project • Semantic Search Powered by all-MiniLM-L6-v2</p>
+      </footer>
     </div>
   );
 }
-
-export default App;

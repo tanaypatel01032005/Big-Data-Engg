@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node
+node_modules/
+
+# Build artifacts
+frontend/dist/
+
+# Note: embeddings are committed to repo for free-tier deployment
+# To regenerate, delete embeddings/ and run: python scripts/build_embeddings.py
+
+# SQLite temp files
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Old nested project copy (if re-cloned)
+Big-Data-Engg/

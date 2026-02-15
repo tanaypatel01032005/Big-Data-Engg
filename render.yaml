@@ -1,8 +1,13 @@
 services:
   - type: web
-    name: book-library-api
-    runtime: docker
+    name: library-book-finder
+    env: docker
     plan: free
+    region: singapore
+    numInstances: 1
+    healthCheckPath: /health
     envVars:
       - key: PORT
-        value: 8000
+        value: 10000
+      - key: PYTHONUNBUFFERED
+        value: 1

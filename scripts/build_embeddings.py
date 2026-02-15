@@ -1,132 +1,123 @@
-import argparse
-import json
-import os
-import re
 import sqlite3
+import json
+import re
 from pathlib import Path
-from typing import Dict, List
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
 
-MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-MODEL_DIMENSION = 384
+# ================== CONFIG ==================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = os.getenv("BOOK_DB_PATH", str(BASE_DIR / "Database" / "db.sqlite3"))
-OUTPUT_DIR = BASE_DIR / "embeddings"
+DB_PATH = BASE_DIR / "Database" / "db.sqlite3"
+EMBEDDINGS_DIR = BASE_DIR / "embeddings"
 
+VECTORS_PATH = EMBEDDINGS_DIR / "vectors.npy"
+METADATA_PATH = EMBEDDINGS_DIR / "metadata.json"
 
-def sentence_chunk(description: str) -> List[str]:
-    sentences = [
-        sentence.strip()
-        for sentence in re.split(r"(?<=[.!?])\s+", description)
-        if sentence.strip()
-    ]
-    if not sentences:
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+VECTOR_DIM = 384
+
+# ================== TEXT UTILITIES ==================
+
+def normalize_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip())
+
+def split_sentences(text: str):
+    if not text:
         return []
+    text = normalize_text(text)
+    return re.split(r"(?<=[.!?])\s+", text)
+
+def chunk_sentences(sentences, min_sent=2, max_sent=3):
     chunks = []
-    idx = 0
-    while idx < len(sentences):
-        chunk_sentences = sentences[idx : idx + 2]
-        idx += 2
-        chunk = " ".join(chunk_sentences)
-        chunks.append(chunk)
-    if len(chunks) >= 2 and len(chunks[-1].split()) <= 6:
-        chunks[-2] = f"{chunks[-2]} {chunks[-1]}".strip()
-        chunks.pop()
+    i = 0
+    while i < len(sentences):
+        chunk = sentences[i:i + max_sent]
+        if len(chunk) >= min_sent:
+            chunks.append(" ".join(chunk))
+        i += max_sent
     return chunks
 
+# ================== MAIN PIPELINE ==================
 
-def load_books(conn: sqlite3.Connection) -> List[Dict[str, str]]:
+def build_embeddings():
+    print("▶ Loading embedding model...")
+    model = SentenceTransformer(MODEL_NAME)
+
+    print("▶ Connecting to SQLite database...")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute(
-        """
+
+    cursor.execute("""
         SELECT Acc_No, Title, description
         FROM books
-        WHERE Title IS NOT NULL
         ORDER BY Acc_No ASC
-        """
-    )
+    """)
+
     rows = cursor.fetchall()
-    return [
-        {
-            "acc_no": row[0],
-            "title": row[1] or "",
-            "description": row[2] or "",
-        }
-        for row in rows
-    ]
-
-
-def build_embeddings() -> None:
-    if not Path(DB_PATH).exists():
-        raise FileNotFoundError(f"Database file not found at {DB_PATH}")
-
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    conn = sqlite3.connect(DB_PATH)
-    books = load_books(conn)
     conn.close()
 
-    model = SentenceTransformer(MODEL_NAME, device="cpu")
+    # ---------- Step 1: Collect all texts + metadata ----------
+    texts = []
+    metadata = []
 
-    title_texts = [book["title"] for book in books]
-    title_vectors = model.encode(title_texts, batch_size=64, show_progress_bar=True)
-    title_vectors = np.asarray(title_vectors, dtype=np.float32)
-    title_metadata = [
-        {"acc_no": book["acc_no"], "title": book["title"]} for book in books
-    ]
+    print(f"▶ Preparing {len(rows)} books...")
+    for acc_no, title, description in rows:
+        if title:
+            text = normalize_text(title)
+            texts.append(text)
+            metadata.append({
+                "chunk_id": len(texts) - 1,
+                "acc_no": acc_no,
+                "field": "title",
+                "text": text
+            })
 
-    desc_texts = []
-    desc_metadata = []
-    for book in books:
-        chunks = sentence_chunk(book["description"])
-        for chunk in chunks:
-            desc_texts.append(chunk)
-            desc_metadata.append(
-                {
-                    "acc_no": book["acc_no"],
-                    "chunk": chunk,
-                }
-            )
+        if description:
+            sentences = split_sentences(description)
+            chunks = chunk_sentences(sentences)
+            for chunk in chunks:
+                texts.append(chunk)
+                metadata.append({
+                    "chunk_id": len(texts) - 1,
+                    "acc_no": acc_no,
+                    "field": "description",
+                    "text": chunk
+                })
 
-    if desc_texts:
-        desc_vectors = model.encode(desc_texts, batch_size=64, show_progress_bar=True)
-    else:
-        desc_vectors = np.zeros((0, MODEL_DIMENSION), dtype=np.float32)
-
-    desc_vectors = np.asarray(desc_vectors, dtype=np.float32)
-
-    np.save(OUTPUT_DIR / "title_embeddings.npy", title_vectors)
-    np.save(OUTPUT_DIR / "desc_embeddings.npy", desc_vectors)
-
-    (OUTPUT_DIR / "title_metadata.json").write_text(
-        json.dumps(title_metadata, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    (OUTPUT_DIR / "desc_metadata.json").write_text(
-        json.dumps(desc_metadata, ensure_ascii=False, indent=2), encoding="utf-8"
+    # ---------- Step 2: Batch encode ----------
+    print(f"▶ Encoding {len(texts)} text chunks in batches...")
+    vectors = model.encode(
+        texts,
+        batch_size=256,
+        show_progress_bar=True,
+        normalize_embeddings=True  # pre-normalize for fast dot-product similarity
     )
 
-    (OUTPUT_DIR / "model_info.json").write_text(
-        json.dumps(
-            {
-                "model_name": MODEL_NAME,
-                "vector_dimension": MODEL_DIMENSION,
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+    vectors = np.array(vectors, dtype=np.float32)
 
+    if vectors.shape[1] != VECTOR_DIM:
+        raise ValueError("Embedding dimension mismatch")
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Build semantic search embeddings for the library database."
-    )
-    parser.parse_args()
-    build_embeddings()
+    # ---------- Step 3: Save ----------
+    EMBEDDINGS_DIR.mkdir(exist_ok=True)
 
+    print("▶ Writing embedding vectors...")
+    np.save(VECTORS_PATH, vectors)
+
+    print("▶ Writing metadata...")
+    with open(METADATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, ensure_ascii=False)
+
+    print("✅ Embedding rebuild completed successfully")
+    print(f"   Total vectors: {len(vectors)}")
+    print(f"   Output:")
+    print(f"     - {VECTORS_PATH}")
+    print(f"     - {METADATA_PATH}")
+
+# ================== ENTRY POINT ==================
 
 if __name__ == "__main__":
-    main()
+    build_embeddings()
