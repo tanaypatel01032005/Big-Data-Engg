@@ -51,8 +51,9 @@ def _ensure_loaded():
             build_embeddings()
             print("✅ Embeddings built successfully.")
 
-        print("▶ Loading embedding vectors...")
-        _vectors = np.load(VECTORS_PATH)
+        print("▶ Loading embedding vectors (mmap)...")
+        # Use mmap_mode='r' to keep vectors on disk, saving ~130MB RAM
+        _vectors = np.load(VECTORS_PATH, mmap_mode='r')
 
         print("▶ Loading metadata...")
         with open(METADATA_PATH, "r", encoding="utf-8") as f:
@@ -69,18 +70,10 @@ def _ensure_loaded():
         print(f"✅ Semantic engine ready ({len(_metadata)} vectors loaded)")
 
 
-# ================= BACKGROUND PRELOAD =================
-# Starts loading in a background thread so the first search is fast.
-# Server responds instantly to /health, /books, etc. while this runs.
-
-def _background_preload():
-    try:
-        _ensure_loaded()
-    except Exception as e:
-        print(f"⚠️  Background preload failed (will retry on first search): {e}")
-
-_preload_thread = threading.Thread(target=_background_preload, daemon=True)
-_preload_thread.start()
+# ================= NO BACKGROUND PRELOAD =================
+# We removed the background thread to prevent CPU/RAM spikes during
+# the critical boot phase (avoiding Gunicorn timeouts).
+# The model will load on the first user search request.
 
 
 # ================= ENGINE =================
