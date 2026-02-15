@@ -15,8 +15,11 @@ WORKDIR /app
 # Install Python dependencies (CPU-only torch for smaller image)
 COPY requirements.txt ./
 RUN pip install --no-cache-dir \
-    # Set model cache path to ensure it's preserved
-    ENV SENTENCE_TRANSFORMERS_HOME=/app/model_cache
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -r requirements.txt
+
+# Set model cache path to ensure it's preserved
+ENV SENTENCE_TRANSFORMERS_HOME=/app/model_cache
 
 # Pre-download the model to avoid runtime timeout & connection issues
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
