@@ -57,9 +57,11 @@ app.add_middleware(
 )
 
 # ---------------- ROOT ----------------
-@app.get("/")
-def root():
-    return {"status": "ok"}
+# ---------------- ROOT ----------------
+# Removed to serve frontend at root
+# @app.get("/")
+# def root():
+#     return {"status": "ok"}
 
 # ---------------- HEALTH ----------------
 @app.get("/health")
@@ -226,11 +228,7 @@ def search_status():
 # ---------------- FRONTEND SERVING ----------------
 frontend_dist = BASE_DIR / "frontend" / "dist"
 if frontend_dist.exists():
-    app.mount(
-        "/app",
-        StaticFiles(directory=frontend_dist, html=True),
-        name="frontend",
-    )
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
