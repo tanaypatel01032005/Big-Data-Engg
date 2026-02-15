@@ -24,7 +24,7 @@ THRESHOLD_STEP = 0.05
 # ================= LAZY-LOADED SINGLETONS =================
 
 _vectors = None
-_metadata = None
+_metadata_idx = None # List of (acc_no, is_title_bool)
 _model = None
 _lock = threading.Lock()
 _loading = False
@@ -32,7 +32,7 @@ _loading = False
 
 def _ensure_loaded():
     """Load model, vectors, and metadata on first use (not at import time)."""
-    global _vectors, _metadata, _model, _loading
+    global _vectors, _metadata_idx, _model, _loading
 
     if _model is not None:
         return  # already loaded
@@ -55,9 +55,17 @@ def _ensure_loaded():
         # Use mmap_mode='r' to keep vectors on disk, saving ~130MB RAM
         _vectors = np.load(VECTORS_PATH, mmap_mode='r')
 
-        print("▶ Loading metadata...")
+        print("▶ Loading metadata (lightweight)...")
+        # Optimization: Don't keep Full JSON in RAM.
+        # Just keep (acc_no, is_title) to map index -> book.
+        # This saves ~50MB RAM by discarding the 'text' chunks.
         with open(METADATA_PATH, "r", encoding="utf-8") as f:
-            _metadata = json.load(f)
+            raw_data = json.load(f)
+            _metadata_idx = [
+                (item["acc_no"], item["field"] == "title")
+                for item in raw_data
+            ]
+            del raw_data # Free memory immediately
 
         if _vectors.shape[1] != VECTOR_DIM:
             raise RuntimeError("Embedding dimension mismatch")
@@ -67,13 +75,7 @@ def _ensure_loaded():
         _model = SentenceTransformer(MODEL_NAME)
 
         _loading = False
-        print(f"✅ Semantic engine ready ({len(_metadata)} vectors loaded)")
-
-
-# ================= NO BACKGROUND PRELOAD =================
-# We removed the background thread to prevent CPU/RAM spikes during
-# the critical boot phase (avoiding Gunicorn timeouts).
-# The model will load on the first user search request.
+        print(f"✅ Semantic engine ready ({len(_metadata_idx)} vectors loaded)")
 
 
 # ================= ENGINE =================
@@ -108,15 +110,16 @@ def semantic_search(query: str, allowed_fields=None):
             if score < threshold:
                 continue
 
-            meta = _metadata[idx]
+            acc_no, is_title = _metadata_idx[idx]
+            field = "title" if is_title else "description"
 
-            if allowed_fields and meta["field"] not in allowed_fields:
+            if allowed_fields and field not in allowed_fields:
                 continue
 
             matches.append({
-                "acc_no": meta["acc_no"],
-                "field": meta["field"],
-                "text": meta["text"],
+                "acc_no": acc_no,
+                "field": field,
+                "text": "...", # Text is discarded to save RAM
                 "similarity": float(score)
             })
 
