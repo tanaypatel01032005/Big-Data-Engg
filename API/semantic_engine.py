@@ -88,7 +88,7 @@ def _ensure_loaded():
 
 # ================= ENGINE =================
 
-def semantic_search(query: str, allowed_fields=None):
+def semantic_search(query: str, allowed_fields=None, top_k=50):
     """
     allowed_fields:
         None            → title + description
@@ -136,7 +136,7 @@ def semantic_search(query: str, allowed_fields=None):
                 key=lambda x: (-x["similarity"], x["acc_no"])
             )
             return {
-                "results": matches,
+                "results": matches[:top_k],
                 "final_threshold": threshold,
                 "threshold_reduced": threshold < DEFAULT_THRESHOLD
             }
