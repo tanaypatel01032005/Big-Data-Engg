@@ -106,24 +106,47 @@ def semantic_search(query: str, allowed_fields=None, top_k=50):
 
     query_vec = _model.encode(query)
 
-    similarities = cosine_similarity(query_vec, _vectors)
+    candidate_k = min(len(_vectors), top_k * 10)
+    chunk_size = 5000
+    num_vectors = _vectors.shape[0]
 
-    candidate_k = min(len(_vectors), top_k * 10)  # Check more to account for filtering
-    
-    # Efficiently get top candidate indices (unsorted)
-    top_indices = np.argpartition(-similarities, candidate_k)[:candidate_k]
-    
-    # Get scores and sort indices by score descending
-    top_scores = similarities[top_indices]
-    sorted_order = np.argsort(-top_scores)
-    sorted_indices = top_indices[sorted_order]
+    all_top_indices = []
+    all_top_scores = []
+
+    # Process vectors in chunks to avoid loading entire 137MB index into RAM
+    for start in range(0, num_vectors, chunk_size):
+        end = min(start + chunk_size, num_vectors)
+        chunk = _vectors[start:end] # Memory-mapped slice (low RAM)
+
+        # Compute cosine similarity for this chunk
+        chunk_sims = cosine_similarity(query_vec, chunk)[0] # (local_size,)
+
+        # Get top local candidates
+        k_local = min(len(chunk_sims), top_k * 2) # Get enough candidates
+        local_indices = np.argpartition(-chunk_sims, k_local)[:k_local]
+        local_scores = chunk_sims[local_indices]
+
+        # Convert to global indices
+        global_indices = local_indices + start
+        
+        all_top_indices.extend(global_indices)
+        all_top_scores.extend(local_scores)
+
+    # Convert collected candidates to numpy arrays
+    all_top_indices = np.array(all_top_indices)
+    all_top_scores = np.array(all_top_scores)
+
+    # Final Sort of candidates
+    sorted_order = np.argsort(-all_top_scores)
+    sorted_indices = all_top_indices[sorted_order]
+    sorted_scores = all_top_scores[sorted_order]
 
     matches = []
     found_above_default = False
 
-    for idx in sorted_indices:
-        score = similarities[idx]
-        
+    for i, idx in enumerate(sorted_indices):
+        score = sorted_scores[i]
+
         if score < MIN_THRESHOLD:
             break
 
@@ -148,7 +171,6 @@ def semantic_search(query: str, allowed_fields=None, top_k=50):
 
     return {
         "results": matches,
-        # If matches found, use top match score as threshold proxy, else default
         "final_threshold": matches[0]["similarity"] if matches else DEFAULT_THRESHOLD,
         "threshold_reduced": not found_above_default if matches else True
     }
