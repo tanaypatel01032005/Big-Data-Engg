@@ -512,18 +512,7 @@ curl "http://localhost:8000/search/semantic?query=machine learning"
 
 ---
 
-## ⚠️ Limitations & Future Improvements
-
-### Current Limitations
-
-1. **Search Reliability**: External descriptions may vary in quality
-2. **Speed**: Scraping is slower than paid APIs
-3. **Read-Only API**: No POST/PUT endpoints
-4. **Source Attribution**: Description source not stored
-5. **Sync Execution**: Pipeline is synchronous
-6. **Single Instance**: No horizontal scaling
-
-### Future Improvements
+## 🚀 Future Improvements
 
 1. Add caching layer (Redis)
 2. Implement async enrichment pipeline
