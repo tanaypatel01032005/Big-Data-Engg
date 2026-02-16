@@ -30,8 +30,8 @@ COPY Database ./Database
 COPY scripts ./scripts
 COPY cli_helper.py ./
 
-# Copy pre-built embeddings (built locally, committed to repo)
-COPY embeddings ./embeddings
+# Generate embeddings fresh from DB (Required for correct search!)
+RUN python scripts/build_embeddings.py
 
 # Precompute lightweight index for low-memory runtime
 RUN python scripts/precompute_index.py

@@ -18,8 +18,8 @@ INDEX_PATH = EMBEDDINGS_DIR / "index.pkl"
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 VECTOR_DIM = 384
 
-DEFAULT_THRESHOLD = 0.10 # DEBUG
-MIN_THRESHOLD = 0.05
+DEFAULT_THRESHOLD = 0.60
+MIN_THRESHOLD = 0.50
 THRESHOLD_STEP = 0.05
 
 # ================= LAZY-LOADED SINGLETONS =================
@@ -142,9 +142,6 @@ def semantic_search(query: str, allowed_fields=None, top_k=50):
     sorted_order = np.argsort(-all_top_scores)
     sorted_indices = all_top_indices[sorted_order]
     sorted_scores = all_top_scores[sorted_order]
-
-    print(f"DEBUG: Top 5 Candidates: {sorted_scores[:5]}")
-    # print(f"DEBUG: Top 5 Indices: {sorted_indices[:5]}")
 
     matches = []
     found_above_default = False
