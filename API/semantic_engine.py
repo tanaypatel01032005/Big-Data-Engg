@@ -13,6 +13,7 @@ EMBEDDINGS_DIR = BASE_DIR / "embeddings"
 
 VECTORS_PATH = EMBEDDINGS_DIR / "vectors.npy"
 METADATA_PATH = EMBEDDINGS_DIR / "metadata.json"
+INDEX_PATH = EMBEDDINGS_DIR / "index.pkl"
 
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 VECTOR_DIM = 384
@@ -55,17 +56,21 @@ def _ensure_loaded():
         # Use mmap_mode='r' to keep vectors on disk, saving ~130MB RAM
         _vectors = np.load(VECTORS_PATH, mmap_mode='r')
 
-        print("▶ Loading metadata (lightweight)...")
-        # Optimization: Don't keep Full JSON in RAM.
-        # Just keep (acc_no, is_title) to map index -> book.
-        # This saves ~50MB RAM by discarding the 'text' chunks.
-        with open(METADATA_PATH, "r", encoding="utf-8") as f:
-            raw_data = json.load(f)
-            _metadata_idx = [
-                (item["acc_no"], item["field"] == "title")
-                for item in raw_data
-            ]
-            del raw_data # Free memory immediately
+        print("▶ Loading metadata index...")
+        # Optimization: Use precomputed pickle if available to avoid JSON parse spike
+        if INDEX_PATH.exists():
+            import pickle
+            with open(INDEX_PATH, "rb") as f:
+                _metadata_idx = pickle.load(f)
+        else:
+            print("⚠️ Precomputed index not found. Falling back to JSON parse (SLOW/HIGH RAM).")
+            with open(METADATA_PATH, "r", encoding="utf-8") as f:
+                raw_data = json.load(f)
+                _metadata_idx = [
+                    (item["acc_no"], item["field"] == "title")
+                    for item in raw_data
+                ]
+                del raw_data
 
         if _vectors.shape[1] != VECTOR_DIM:
             raise RuntimeError("Embedding dimension mismatch")

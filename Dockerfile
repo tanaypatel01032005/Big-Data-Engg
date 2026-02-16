@@ -33,6 +33,9 @@ COPY cli_helper.py ./
 # Copy pre-built embeddings (built locally, committed to repo)
 COPY embeddings ./embeddings
 
+# Precompute lightweight index for low-memory runtime
+RUN python scripts/precompute_index.py
+
 # Copy built frontend
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
