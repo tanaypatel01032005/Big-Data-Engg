@@ -119,7 +119,7 @@ def semantic_search(query: str, allowed_fields=None, top_k=50):
         chunk = _vectors[start:end] # Memory-mapped slice (low RAM)
 
         # Compute cosine similarity for this chunk
-        chunk_sims = cosine_similarity(query_vec, chunk)[0] # (local_size,)
+        chunk_sims = cosine_similarity(query_vec, chunk) # (local_size,)
 
         # Get top local candidates
         k_local = min(len(chunk_sims), top_k * 2) # Get enough candidates
