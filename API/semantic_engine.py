@@ -30,6 +30,9 @@ _model = None
 _lock = threading.Lock()
 _loading = False
 
+def is_model_ready():
+    return _model is not None
+
 
 def _ensure_loaded():
     """Load model, vectors, and metadata on first use (not at import time)."""

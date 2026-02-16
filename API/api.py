@@ -12,7 +12,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from cli_helper import setup_cli, check_help
 
 # ---------------- SEMANTIC ENGINE ----------------
-from API.semantic_engine import semantic_search, _model, _loading
+import API.semantic_engine
+from API.semantic_engine import semantic_search
 
 # ---------------- CLI CHECK ----------------
 check_help("FastAPI application for Library Book Finder")
@@ -221,8 +222,8 @@ def model_info():
 @app.get("/search/status")
 def search_status():
     return {
-        "ready": _model is not None,
-        "loading": _loading,
+        "ready": API.semantic_engine.is_model_ready(),
+        "loading": API.semantic_engine._loading,
     }
 
 # ---------------- FRONTEND SERVING ----------------
