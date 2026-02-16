@@ -562,16 +562,9 @@ This project demonstrates:
 - ✅ Cloud deployment
 - ✅ Memory optimization techniques
 - ✅ Code modularity and separation of concerns
-
 ---
 
-## 📄 License
-
-This project is for educational purposes.
-
----
-
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [OpenLibrary](https://openlibrary.org/) - Book metadata
 - [Google Books](https://books.google.com/) - Book descriptions
@@ -599,5 +592,3 @@ uvicorn API.api:app --reload
 ```
 
 ---
-
-*Built with ❤️ for Big Data Engineering Course*
