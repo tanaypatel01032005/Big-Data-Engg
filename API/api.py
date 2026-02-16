@@ -154,7 +154,7 @@ def unified_search(q: str = Query(..., min_length=2, max_length=200)):
 
 # ---------------- TITLE SEMANTIC SEARCH ----------------
 @app.get("/search/title")
-def search_title(query: str = Query(..., min_length=3, max_length=200)):
+def search_title(query: str = Query(..., min_length=2, max_length=200)):
     semantic = semantic_search(query, allowed_fields=["title"])
     acc_nos = list({r["acc_no"] for r in semantic["results"]})
     books = fetch_books_by_acc_nos(acc_nos)
@@ -180,7 +180,7 @@ def search_title(query: str = Query(..., min_length=3, max_length=200)):
 
 # ---------------- FULL SEMANTIC SEARCH ----------------
 @app.get("/search/semantic")
-def search_semantic(query: str = Query(..., min_length=3, max_length=200)):
+def search_semantic(query: str = Query(..., min_length=2, max_length=200)):
     semantic = semantic_search(query)
     acc_nos = list({r["acc_no"] for r in semantic["results"]})
     books = fetch_books_by_acc_nos(acc_nos)
@@ -206,7 +206,7 @@ def search_semantic(query: str = Query(..., min_length=3, max_length=200)):
 
 # ---------------- RAW SEMANTIC SEARCH ----------------
 @app.get("/search/raw")
-def search_raw(query: str = Query(..., min_length=3, max_length=200)):
+def search_raw(query: str = Query(..., min_length=2, max_length=200)):
     return semantic_search(query)
 
 # ---------------- MODEL INFO ----------------

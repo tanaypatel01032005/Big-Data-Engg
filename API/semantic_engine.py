@@ -108,44 +108,47 @@ def semantic_search(query: str, allowed_fields=None, top_k=50):
 
     similarities = cosine_similarity(query_vec, _vectors)
 
-    threshold = DEFAULT_THRESHOLD
-    threshold_reduced = False
+    candidate_k = min(len(_vectors), top_k * 10)  # Check more to account for filtering
+    
+    # Efficiently get top candidate indices (unsorted)
+    top_indices = np.argpartition(-similarities, candidate_k)[:candidate_k]
+    
+    # Get scores and sort indices by score descending
+    top_scores = similarities[top_indices]
+    sorted_order = np.argsort(-top_scores)
+    sorted_indices = top_indices[sorted_order]
 
-    while threshold >= MIN_THRESHOLD:
-        matches = []
+    matches = []
+    found_above_default = False
 
-        for idx, score in enumerate(similarities):
-            if score < threshold:
-                continue
+    for idx in sorted_indices:
+        score = similarities[idx]
+        
+        if score < MIN_THRESHOLD:
+            break
 
-            acc_no, is_title = _metadata_idx[idx]
-            field = "title" if is_title else "description"
+        acc_no, is_title = _metadata_idx[idx]
+        field = "title" if is_title else "description"
 
-            if allowed_fields and field not in allowed_fields:
-                continue
+        if allowed_fields and field not in allowed_fields:
+            continue
 
-            matches.append({
-                "acc_no": acc_no,
-                "field": field,
-                "text": "...", # Text is discarded to save RAM
-                "similarity": float(score)
-            })
+        matches.append({
+            "acc_no": acc_no,
+            "field": field,
+            "text": "...", # Text is discarded to save RAM
+            "similarity": float(score)
+        })
+        
+        if score >= DEFAULT_THRESHOLD:
+            found_above_default = True
 
-        if matches:
-            matches.sort(
-                key=lambda x: (-x["similarity"], x["acc_no"])
-            )
-            return {
-                "results": matches[:top_k],
-                "final_threshold": threshold,
-                "threshold_reduced": threshold < DEFAULT_THRESHOLD
-            }
-
-        threshold -= THRESHOLD_STEP
-        threshold_reduced = True
+        if len(matches) >= top_k:
+            break
 
     return {
-        "results": [],
-        "final_threshold": threshold,
-        "threshold_reduced": True
+        "results": matches,
+        # If matches found, use top match score as threshold proxy, else default
+        "final_threshold": matches[0]["similarity"] if matches else DEFAULT_THRESHOLD,
+        "threshold_reduced": not found_above_default if matches else True
     }
